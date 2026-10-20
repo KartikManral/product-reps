@@ -49,25 +49,40 @@ async function pickModel(key) {
 }
 
 async function gemini(prompt, temperature) {
-  const key = process.env.GEMINI_API_KEY;
+  const key = (process.env.GEMINI_API_KEY || "").trim().replace(/^["']|["']$/g, "");
   const call = async (model) => fetch(`${API}/${model}:generateContent`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: "application/json", temperature, maxOutputTokens: 2048 },
+      generationConfig: { responseMimeType: "application/json", temperature, maxOutputTokens: 8192 },
     }),
   });
   let model = await pickModel(key);
   let r = await call(model);
   if ((r.status === 404 || r.status === 400) && !process.env.GEMINI_MODEL && model !== "models/gemini-flash-latest") {
+    console.error(`Gemini ${model} returned ${r.status}; retrying with gemini-flash-latest`);
     cachedModel = "models/gemini-flash-latest";
-    r = await call(cachedModel);
+    model = cachedModel;
+    r = await call(model);
   }
-  if (r.status === 429) throw { status: 503, code: "busy", error: "The free AI quota is used up for now. Try again later." };
-  if (!r.ok) throw { status: 502, code: "upstream", error: "AI didn't respond. Try again in a moment." };
+  if (!r.ok) {
+    const body = await r.text().catch(() => "");
+    let reason = "", message = "";
+    try { const e = JSON.parse(body).error || {}; message = e.message || ""; reason = (e.details || []).map((d) => d.reason).filter(Boolean).join(","); } catch {}
+    console.error(`Gemini error ${r.status} on ${model}: ${reason} ${message || body.slice(0, 500)}`);
+    if (r.status === 429) throw { status: 503, code: "busy", error: "The free AI quota is used up for now. Try again later." };
+    if (/API_KEY_INVALID|API key not valid|API_KEY/i.test(reason + message))
+      throw { status: 500, code: "config", error: "The site's Gemini API key isn't valid. The site owner needs to update GEMINI_API_KEY in Vercel." };
+    if (r.status === 403)
+      throw { status: 500, code: "config", error: "The Gemini API key doesn't have access. The site owner needs to check the key in Google AI Studio." };
+    if (r.status === 404)
+      throw { status: 500, code: "config", error: "The AI model isn't available for this key. The site owner can set GEMINI_MODEL in Vercel." };
+    throw { status: 502, code: "upstream", error: `AI didn't respond (error ${r.status}). Try again in a moment.` };
+  }
   const j = await r.json();
   const text = (j.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("");
+  if (!text) console.error(`Gemini returned no text on ${model}: finishReason=${j.candidates?.[0]?.finishReason} block=${j.promptFeedback?.blockReason || ""}`);
   return parseJSON(text);
 }
 
