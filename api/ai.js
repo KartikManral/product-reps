@@ -28,62 +28,92 @@ function sb() {
   return admin;
 }
 
-/* Pick a model: GEMINI_MODEL if set, otherwise the newest stable Flash model this key can use. */
-let cachedModel = null;
-async function pickModel(key) {
-  if (process.env.GEMINI_MODEL) return "models/" + process.env.GEMINI_MODEL.replace(/^models\//, "");
-  if (cachedModel) return cachedModel;
+/* Models to try, best first: GEMINI_MODEL if set, then the newest stable Flash models,
+   then Flash-Lite, then Google's "latest" aliases. If one is overloaded or out of quota,
+   the next one is tried, since each model has its own free-tier limits. */
+let cachedList = null;
+let lastGood = null;
+const norm = (m) => "models/" + String(m).trim().replace(/^models\//, "");
+async function modelList(key) {
+  if (cachedList) return cachedList;
+  const ver = (n) => { const m = n.match(/gemini-(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : 0; };
+  let flash = [], lite = [];
   try {
-    const r = await fetch(`${API}/models?pageSize=200`, { headers: { "x-goog-api-key": key } });
+    const r = await fetch(`${API}/models?pageSize=200`, { headers: { "x-goog-api-key": key }, signal: AbortSignal.timeout(8000) });
     const j = await r.json();
-    const ver = (n) => { const m = n.match(/gemini-(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : 0; };
-    const ok = (j.models || [])
+    const usable = (j.models || [])
       .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
-      .filter((m) => /gemini-[\d.]+-flash/i.test(m.name) && !/(lite|image|tts|audio|live|exp|preview|embedding|thinking)/i.test(m.name))
-      .sort((a, b) => ver(b.name) - ver(a.name) || a.name.length - b.name.length);
-    cachedModel = ok[0]?.name || "models/gemini-flash-latest";
-  } catch {
-    cachedModel = "models/gemini-flash-latest";
-  }
-  return cachedModel;
+      .map((m) => m.name)
+      .filter((n) => /gemini-[\d.]+-flash/i.test(n) && !/(image|tts|audio|live|exp|preview|embedding|thinking|\d{3,})/i.test(n))
+      .sort((a, b) => ver(b) - ver(a) || a.length - b.length);
+    flash = usable.filter((n) => !/lite/i.test(n)).slice(0, 2);
+    lite = usable.filter((n) => /lite/i.test(n)).slice(0, 1);
+  } catch {}
+  const list = [
+    ...(process.env.GEMINI_MODEL ? [norm(process.env.GEMINI_MODEL)] : []),
+    ...flash, "models/gemini-flash-latest", ...lite, "models/gemini-flash-lite-latest",
+  ];
+  cachedList = [...new Set(list)];
+  return cachedList;
 }
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function gemini(prompt, temperature) {
   const key = (process.env.GEMINI_API_KEY || "").trim().replace(/^["']|["']$/g, "");
-  const call = async (model) => fetch(`${API}/${model}:generateContent`, {
+  const call = (model) => fetch(`${API}/${model}:generateContent`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-goog-api-key": key },
+    signal: AbortSignal.timeout(40000),
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: { responseMimeType: "application/json", temperature, maxOutputTokens: 8192 },
     }),
   });
-  let model = await pickModel(key);
-  let r = await call(model);
-  if ((r.status === 404 || r.status === 400) && !process.env.GEMINI_MODEL && model !== "models/gemini-flash-latest") {
-    console.error(`Gemini ${model} returned ${r.status}; retrying with gemini-flash-latest`);
-    cachedModel = "models/gemini-flash-latest";
-    model = cachedModel;
-    r = await call(model);
+
+  const list = await modelList(key);
+  const order = lastGood && list.includes(lastGood) ? [lastGood, ...list.filter((m) => m !== lastGood)] : list;
+  let busy = false, attempts = 0;
+
+  for (const model of order) {
+    for (let tryNo = 0; tryNo < 2 && attempts < 6; tryNo++) {
+      attempts++;
+      let r;
+      try { r = await call(model); }
+      catch (e) { console.error(`Gemini ${model} request failed: ${e?.name || e}`); busy = true; break; }
+
+      if (r.ok) {
+        const j = await r.json();
+        const text = (j.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("");
+        if (!text) {
+          console.error(`Gemini ${model} returned no text: finishReason=${j.candidates?.[0]?.finishReason} block=${j.promptFeedback?.blockReason || ""}`);
+          break; // try the next model
+        }
+        lastGood = model;
+        return parseJSON(text);
+      }
+
+      const body = await r.text().catch(() => "");
+      let reason = "", message = "";
+      try { const e = JSON.parse(body).error || {}; message = e.message || ""; reason = (e.details || []).map((d) => d.reason).filter(Boolean).join(","); } catch {}
+      console.error(`Gemini error ${r.status} on ${model}: ${reason} ${message || body.slice(0, 300)}`);
+
+      if (/API_KEY_INVALID|API key not valid/i.test(reason + message))
+        throw { status: 500, code: "config", error: "The site's Gemini API key isn't valid. The site owner needs to update GEMINI_API_KEY in Vercel." };
+      if (r.status === 403)
+        throw { status: 500, code: "config", error: "The Gemini API key doesn't have access. The site owner needs to check the key in Google AI Studio." };
+      if (r.status === 503 || r.status === 500 || r.status === 504) {
+        busy = true;
+        if (tryNo === 0 && model === order[0]) { await sleep(1200); continue; } // one quick retry on the first model only
+        break;
+      }
+      if (r.status === 429) { busy = true; break; } // this model's quota is used up: try the next
+      break; // 400/404 etc.: this model doesn't work for this key, try the next
+    }
+    if (attempts >= 6) break;
   }
-  if (!r.ok) {
-    const body = await r.text().catch(() => "");
-    let reason = "", message = "";
-    try { const e = JSON.parse(body).error || {}; message = e.message || ""; reason = (e.details || []).map((d) => d.reason).filter(Boolean).join(","); } catch {}
-    console.error(`Gemini error ${r.status} on ${model}: ${reason} ${message || body.slice(0, 500)}`);
-    if (r.status === 429) throw { status: 503, code: "busy", error: "The free AI quota is used up for now. Try again later." };
-    if (/API_KEY_INVALID|API key not valid|API_KEY/i.test(reason + message))
-      throw { status: 500, code: "config", error: "The site's Gemini API key isn't valid. The site owner needs to update GEMINI_API_KEY in Vercel." };
-    if (r.status === 403)
-      throw { status: 500, code: "config", error: "The Gemini API key doesn't have access. The site owner needs to check the key in Google AI Studio." };
-    if (r.status === 404)
-      throw { status: 500, code: "config", error: "The AI model isn't available for this key. The site owner can set GEMINI_MODEL in Vercel." };
-    throw { status: 502, code: "upstream", error: `AI didn't respond (error ${r.status}). Try again in a moment.` };
-  }
-  const j = await r.json();
-  const text = (j.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("");
-  if (!text) console.error(`Gemini returned no text on ${model}: finishReason=${j.candidates?.[0]?.finishReason} block=${j.promptFeedback?.blockReason || ""}`);
-  return parseJSON(text);
+  if (busy) throw { status: 503, code: "busy", error: "Gemini's free tier is busy right now. Wait a minute and try again." };
+  throw { status: 502, code: "upstream", error: "AI didn't respond. Try again in a moment." };
 }
 
 function parseJSON(text) {
