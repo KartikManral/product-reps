@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacy Policy · Product Reps</title>
+<meta name="description" content="How Product Reps collects, uses and protects your data.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#F5F7FB;--card:#FFFFFF;--line:#D6DCE8;--ink:#151D30;--muted:#5A6479;--blue:#2C43D3;--hl:#FFE257;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--paper:#0E131F;--card:#141B2A;--line:#29324A;--ink:#E6EAF3;--muted:#97A1B6;--blue:#93A4FF;--hl:#E4C534;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.65}
+.wrap{max-width:720px;margin:0 auto;padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+a{color:var(--blue)}
+.back{font-size:14px;font-weight:600;text-decoration:none}
+h1{font-family:"Syne","Arial Black",sans-serif;font-weight:800;font-size:clamp(30px,6vw,40px);line-height:1.1;margin:18px 0 6px}
+.hl{background:linear-gradient(transparent 55%,var(--hl) 55%,var(--hl) 90%,transparent 90%);padding:0 2px;color:inherit}
+.date{color:var(--muted);font-size:14px;margin:0 0 28px}
+h2{font-family:"Syne","Arial Black",sans-serif;font-size:20px;margin:32px 0 8px}
+p,li{max-width:65ch}
+ul{padding-left:20px;margin:8px 0}
+li{margin:4px 0}
+.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:20px 0}
+.box p{margin:0}
+table{width:100%;border-collapse:collapse;font-size:15px;margin:10px 0}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.tbl{overflow-x:auto}
+footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <a class="back" href="/">← Back to Product Reps</a>
+  <h1><span class="hl">Privacy</span> Policy</h1>
+  <p class="date">Last updated: 20 October 2026</p>
+
+  <div class="box">
+    <p><strong>In short:</strong> your practice answers stay in your own browser unless you choose to share them. If you sign in, we store your Google name, email and profile photo, plus anything you post to the community. We never sell your data or show ads.</p>
+  </div>
+
+  <p>Product Reps is a free interview-practice app for aspiring product managers, run by Kartik Manral (“we”, “us”). This policy explains what we collect when you use <a href="https://product-reps-lhcq.vercel.app">product-reps-lhcq.vercel.app</a> and why.</p>
+
+  <h2>What we collect</h2>
+  <div class="tbl">
+  <table>
+    <thead><tr><th>Data</th><th>When</th><th>Where it's kept</th></tr></thead>
+    <tbody>
+      <tr><td>Your name, email address and profile photo from Google</td><td>When you sign in with Google</td><td>Our database (Supabase)</td></tr>
+      <tr><td>Questions, answers and comments you post, and your votes</td><td>When you choose to post or vote</td><td>Our database, visible to everyone</td></tr>
+      <tr><td>A daily count of your AI requests</td><td>When you use AI feedback or new AI questions</td><td>Our database</td></tr>
+      <tr><td>Reports you submit about other posts</td><td>When you tap Report</td><td>Our database, visible only to admins</td></tr>
+      <tr><td>Practice drafts, scores, streaks and AI feedback results</td><td>As you practice</td><td>Only your own browser (local storage). We never receive it.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>We only request the basic Google sign-in permissions (your name, email and photo). We never access your Gmail, Drive, contacts or any other Google data.</p>
+
+  <h2>How we use it</h2>
+  <ul>
+    <li>To sign you in and show your name and photo next to things you post.</li>
+    <li>To show community questions, shared answers, comments and vote counts.</li>
+    <li>To limit AI requests per person per day, so the free service stays available to everyone.</li>
+    <li>To review reported posts and remove spam or abuse.</li>
+  </ul>
+  <p>We don't use your data for advertising, and we don't sell or rent it to anyone.</p>
+
+  <h2>AI features</h2>
+  <p>When you tap <strong>Get AI feedback</strong>, the question and the answer you wrote are sent to Google's Gemini API to generate feedback. When you tap <strong>New AI question</strong>, the question type, difficulty and a list of existing question texts are sent. Your name and email are not sent with these requests.</p>
+  <p>This app uses Gemini's free tier. Under Google's terms for that tier, Google may use what is sent to improve its products. Please don't include personal or confidential information in answers you send for AI feedback. See <a href="https://ai.google.dev/gemini-api/terms" rel="noopener">Google's Gemini API terms</a> for details.</p>
+
+  <h2>What's public</h2>
+  <p>Anything you post to the community (questions, shared answers and comments) is public, along with your Google display name and profile photo. Anyone visiting the site can see it, even without signing in. Your email address is never shown to other users.</p>
+
+  <h2>Services we use</h2>
+  <ul>
+    <li><strong>Supabase</strong>: database and sign-in.</li>
+    <li><strong>Vercel</strong>: website hosting. Like any web host, it processes basic request data such as IP addresses to serve the site.</li>
+    <li><strong>Google</strong>: Google sign-in and the Gemini API for AI features.</li>
+  </ul>
+  <p>We don't use advertising trackers. Sign-in uses your browser's local storage to keep you signed in.</p>
+
+  <h2>Your choices</h2>
+  <ul>
+    <li><strong>Use it without signing in:</strong> you can practice, use the timer and browse the community without an account.</li>
+    <li><strong>Delete your posts:</strong> you can delete any question, answer or comment you posted at any time from inside the app.</li>
+    <li><strong>Delete your account:</strong> email us and we'll delete your account and everything linked to it within 30 days.</li>
+    <li><strong>Clear local data:</strong> clearing this site's data in your browser removes your drafts, scores and streaks.</li>
+    <li><strong>Revoke Google access:</strong> you can remove Product Reps at <a href="https://myaccount.google.com/permissions" rel="noopener">myaccount.google.com/permissions</a>.</li>
+  </ul>
+
+  <h2>Retention</h2>
+  <p>We keep your account and posts until you delete them or ask us to delete your account. Daily AI usage counts are only used for rate limiting.</p>
+
+  <h2>Children</h2>
+  <p>Product Reps is meant for college students and early-career professionals. It isn't directed at children under 13, and we don't knowingly collect their data.</p>
+
+  <h2>Changes</h2>
+  <p>If we change this policy, we'll update the date at the top of this page.</p>
+
+  <h2>Contact</h2>
+  <p>Questions or deletion requests: <strong>kartikmanral1@gmail.com</strong></p>
+
+  <footer>Product Reps · Built by Kartik Manral</footer>
+</main>
+</body>
+</html>
