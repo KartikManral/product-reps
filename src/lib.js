@@ -9,7 +9,7 @@ export const supabase = url && key ? createClient(url, key) : null;
 
 /* ── Local progress (this browser) ── */
 const KEY = "productreps.v1";
-const base = () => ({ attempts: [], drafts: {}, fb: {}, checks: {}, custom: [] });
+const base = () => ({ attempts: [], drafts: {}, fb: {}, checks: {}, custom: [], read: {} });
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
@@ -17,6 +17,7 @@ function load() {
       const s = { ...base(), ...JSON.parse(raw) };
       if (!Array.isArray(s.custom)) s.custom = [];
       if (!Array.isArray(s.attempts)) s.attempts = [];
+      if (!s.read || typeof s.read !== "object") s.read = {};
       return s;
     }
   } catch {}

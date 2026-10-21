@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CATS } from "../data.js";
 import { supabase, callAI, words } from "../lib.js";
+import { pickResource } from "../resources.js";
+import { useVoice, voiceSupported } from "../voice.js";
 import { SignInPrompt } from "./ui.jsx";
 import Discussion from "./Discussion.jsx";
 
-export default function Practice({ q, S, update, isToday, onLog, session, profile, isAdmin, onSignIn, onNext, onRandom, onGenerate, onPostQuestion, onPosted, reloadFeed }) {
+export default function Practice({ q, S, update, isToday, onLog, session, profile, isAdmin, onSignIn, onNext, onRandom, onGenerate, onPostQuestion, onPosted, reloadFeed, onOpenLearn }) {
   const c = CATS[q.c];
   const [showHint, setShowHint] = useState(false);
   const [logged, setLogged] = useState(false);
@@ -26,6 +28,27 @@ export default function Practice({ q, S, update, isToday, onLog, session, profil
   }, [running]);
   const mmss = `${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`;
   const timerLabel = running ? "Pause" : left <= 0 ? "Time's up" : left < total ? "Resume" : "Start timer";
+
+  /* answer by voice */
+  const voice = useVoice((chunk) => {
+    update((s) => {
+      const cur = s.drafts[q.id] || "";
+      const sep = !cur ? "" : /\s$/.test(cur) ? "" : " ";
+      s.drafts[q.id] = cur + sep + chunk.charAt(0).toUpperCase() + chunk.slice(1);
+    });
+  });
+  function toggleVoice() {
+    if (voice.listening) { voice.stop(); return; }
+    voice.start();
+    if (!running && left > 0) setRunning(true); // the timer starts when you start speaking
+  }
+  const vs = voice.stats;
+  const minutes = vs.seconds / 60;
+  const pace = minutes >= 0.25 ? Math.round(vs.words / minutes) : null;
+  const fillerTotal = Object.values(vs.fillers).reduce((a, b) => a + b, 0);
+  const fillerList = Object.entries(vs.fillers).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => `${k} ×${v}`).join(" · ");
+  const fmt = (sec) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
+  const brush = fb && fb.score <= 7 ? pickResource(q.c, S.read || {}) : null;
 
   const log = (score) => { if (logged) return; onLog(score); setLogged(true); };
 
@@ -94,15 +117,52 @@ export default function Practice({ q, S, update, isToday, onLog, session, profil
             <button className="btn ghost" onClick={() => { setRunning(false); setLeft(total); }}>Reset</button>
           </div>
         </div>
-        <label htmlFor="answer" className="small">Your answer. Think out loud, the way you would in the interview.</label>
-        <textarea id="answer" className="answer" placeholder="Start by clarifying the goal…" value={draft}
+        <label htmlFor="answer" className="small">
+          {voiceSupported ? "Your answer. Type it, or tap “Answer by voice” and say it out loud like in the interview." : "Your answer. Think out loud, the way you would in the interview."}
+        </label>
+        <textarea id="answer" className={"answer" + (voice.listening ? " listening" : "")} placeholder="Start by clarifying the goal…" value={draft}
           onChange={(e) => { const v = e.target.value; update((s) => { s.drafts[q.id] = v; }); }} />
+        {voice.interim && <p className="interim" aria-live="polite">{voice.interim}…</p>}
         <div className="row">
           <span className="count">{words(draft)} {words(draft) === 1 ? "word" : "words"}</span>
+          {voice.listening && <span className="rec" aria-live="polite"><i aria-hidden="true" />Listening · {fmt(voice.elapsed)}</span>}
           <span className="spacer" />
           <button className="btn" disabled={logged} onClick={() => log(null)}>{logged ? "Logged" : "Log this rep"}</button>
-          {aiOn && <button className="btn primary" disabled={fbState?.kind === "busy"} onClick={getFeedback}>Get AI feedback</button>}
+          {voiceSupported && (
+            <button className={"btn mic" + (voice.listening ? " on" : "")} onClick={toggleVoice} aria-pressed={voice.listening}>
+              {voice.listening
+                ? <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>}
+              {voice.listening ? "Stop" : "Answer by voice"}
+            </button>
+          )}
+          {aiOn && <button className="btn primary" disabled={fbState?.kind === "busy" || voice.listening} onClick={getFeedback}>Get AI feedback</button>}
         </div>
+        {voice.error && <p className="msg err" style={{ margin: 0 }}>{voice.error}</p>}
+        {vs.seconds > 0 && !voice.listening && (
+          <div className="voice-stats" aria-label="How you sounded">
+            <div>
+              <p className="k">Pace</p>
+              <p className="v">{pace ?? "–"} <small>words / min</small></p>
+              <p className="n" style={{ color: pace == null ? "var(--muted)" : pace < 110 ? "var(--warn)" : pace > 170 ? "var(--warn)" : "var(--good)" }}>
+                {pace == null ? "Speak a little longer to see your pace" : pace < 110 ? "A bit slow. Aim for 120–160" : pace > 170 ? "A bit fast. Slow down for clarity" : "Clear pace for interviews (120–160)"}
+              </p>
+            </div>
+            <div>
+              <p className="k">Possible filler words</p>
+              <p className="v">{fillerTotal}</p>
+              <p className="n" style={{ color: fillerTotal > 5 ? "var(--warn)" : "var(--muted)" }}>{fillerList || "None heard"}</p>
+            </div>
+            <div>
+              <p className="k">Speaking time</p>
+              <p className="v">{fmt(vs.seconds)}</p>
+              <p className="n" style={{ color: "var(--muted)" }}>Most answers run {Math.max(2, Math.round(q.m / 5))}–{Math.max(4, Math.round(q.m / 3))} min out loud</p>
+            </div>
+          </div>
+        )}
+        {voiceSupported && voice.listening && (
+          <p className="small" style={{ margin: 0 }}>Your browser turns speech into text (in Chrome, using Google's speech service). Product Reps never records or saves audio. Edit the text before getting feedback.</p>
+        )}
       </div>
 
       {fbState?.kind === "signin" && <SignInPrompt text="Sign in with Google to get AI feedback. It's free and takes one tap." onSignIn={onSignIn} />}
@@ -114,6 +174,14 @@ export default function Practice({ q, S, update, isToday, onLog, session, profil
         </div>
       )}
       {fb && fbState?.kind !== "busy" && <Feedback fb={fb} />}
+      {fb && fbState?.kind !== "busy" && brush && (
+        <div className="brush">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="2" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z" /><path d="M4 19a2 2 0 0 1 2-2h13" /></svg>
+          <span style={{ flex: "1 1 280px" }}><b>Brush up, then retry:</b> {brush.title} ({brush.by}). {brush.time}.</span>
+          <a href={brush.url} target="_blank" rel="noopener noreferrer">Open</a>
+          {onOpenLearn && <button className="link" onClick={onOpenLearn}>More in Learn</button>}
+        </div>
+      )}
 
       <div className="sheet plain">
         <p className="panel-title">Self-check before you move on</p>

@@ -5,7 +5,7 @@ import { Avatar, GoogleButton, TabIcons } from "./components/ui.jsx";
 import QuestionList from "./components/QuestionList.jsx";
 import Practice from "./components/Practice.jsx";
 import Community from "./components/Community.jsx";
-import Frameworks from "./components/Frameworks.jsx";
+import Learn from "./components/Learn.jsx";
 import Progress from "./components/Progress.jsx";
 import PrepPanel from "./components/PrepPanel.jsx";
 
@@ -21,7 +21,7 @@ const INITIAL_PREP = clip(PARAMS.get("prep"), 80)
   : null;
 const INITIAL_TYPE = CATS[PARAMS.get("type")] ? PARAMS.get("type") : null;
 
-const TABS = [["practice", "Practice"], ["questions", "Questions"], ["community", "Community"], ["frameworks", "Frameworks"], ["progress", "Progress"]];
+const TABS = [["practice", "Practice"], ["questions", "Questions"], ["community", "Community"], ["learn", "Learn"], ["progress", "Progress"]];
 
 export default function App() {
   const [S, update] = useStore();
@@ -208,6 +208,22 @@ export default function App() {
   /* ── derived ── */
   const done = useMemo(() => new Set(S.attempts.map((a) => a.id)), [S.attempts]);
   const scores = useMemo(() => latestScores(S.attempts), [S.attempts]);
+  // Question type with the lowest recent AI scores (avg of up to the last 4 scored reps), if 6/10 or under.
+  const weakSpot = useMemo(() => {
+    const byType = {};
+    S.attempts.filter((a) => typeof a.score === "number" && a.c).forEach((a) => (byType[a.c] = byType[a.c] || []).push(a));
+    let worst = null;
+    for (const [type, list] of Object.entries(byType)) {
+      const recent = list.slice(-4);
+      const avg = Math.round((recent.reduce((s, a) => s + a.score, 0) / recent.length) * 10) / 10;
+      if (avg <= 6 && (!worst || avg < worst.avg)) {
+        const low = recent.filter((a) => qmap[a.id]).sort((a, b) => a.score - b.score)[0];
+        worst = { type, avg, retry: low ? qmap[low.id] : null };
+      }
+    }
+    return worst;
+  }, [S.attempts, qmap]);
+
   const weak = useMemo(() => Object.entries(scores).filter(([id, s]) => s <= 6 && qmap[id]).sort((a, b) => a[1] - b[1]).map(([id, s]) => ({ q: qmap[id], s })), [scores, qmap]);
 
   const listItems = useMemo(() => {
@@ -280,6 +296,7 @@ export default function App() {
             <Practice key={q.id} q={q} S={S} update={update} isToday={q.id === dailyId()} onLog={logRep}
               session={session} profile={profile} isAdmin={isAdmin} onSignIn={signIn}
               onNext={() => step("next")} onRandom={() => step("random")} onGenerate={generate}
+              onOpenLearn={() => setView("learn")}
               onPostQuestion={postQuestion} onPosted={(id) => setCur("cm-" + id)} reloadFeed={loadFeed} />
             </div>
           </div>
@@ -288,7 +305,7 @@ export default function App() {
           <Community feed={feed} feedState={feedState} myVotes={myVotes} session={session} uid={uid} isAdmin={isAdmin}
             onSignIn={signIn} onOpen={pick} onPost={postQuestion} onVote={toggleVote} reload={loadFeed} />
         )}
-        {view === "frameworks" && <Frameworks />}
+        {view === "learn" && <Learn S={S} update={update} weakSpot={weakSpot} onRetry={pick} />}
         {view === "progress" && <Progress S={S} getQ={getQ} weak={weak} done={done} onPick={pick} onRedoWeak={redoWeak} />}
       </main>
     </div>
