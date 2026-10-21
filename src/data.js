@@ -65,3 +65,19 @@ export const LIBRARY = [
   { id: "b3", c: "behavioral", d: "Easy", m: 8, q: "Why product management, and why now?" },
   { id: "b4", c: "behavioral", d: "Medium", m: 8, q: "Tell me about a time you used data to change someone's mind." },
 ].map((q) => ({ ...q, source: "library" }));
+
+/* Today's question: same pick for everyone on the same calendar date.
+   Used by the app (viewer's local date) and by /api/today (India date). */
+export function dailyIdFor(dateStr) {
+  let x = 0;
+  for (const ch of dateStr) x = (x * 31 + ch.charCodeAt(0)) >>> 0;
+  return LIBRARY[x % LIBRARY.length].id;
+}
+
+/* Role levels as PM Radar names them, used by "Prep for this role" links. */
+export const LEVELS = {
+  intern: { label: "Internship", diff: "Easy or Medium" },
+  entry: { label: "APM / entry-level", diff: "Medium" },
+  pm: { label: "PM", diff: "Medium or Hard" },
+  senior: { label: "Senior / lead PM", diff: "Hard" },
+};

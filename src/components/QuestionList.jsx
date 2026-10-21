@@ -30,7 +30,7 @@ export default function QuestionList({ items, cur, onPick, cat, setCat, src, set
         {!items.length && <li><div className="note">{EMPTY[src]}</div></li>}
         {items.map((q) => {
           const sc = scores[q.id];
-          const pre = (q.id === today ? "Today · " : "") + (q.source === "ai" ? "AI · " : "") + (q.source === "community" ? `${q.votes} votes · ` : "");
+          const pre = (q.id === today ? "Today · " : "") + (q.source === "ai" ? (q.company ? `${q.company} · ` : "AI · ") : "") + (q.source === "community" ? `${q.votes} votes · ` : "");
           return (
             <li key={q.id}>
               <button className={"qbtn" + (q.id === cur ? " active" : "")} onClick={() => onPick(q.id)}>

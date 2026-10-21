@@ -61,6 +61,7 @@ export default function Practice({ q, S, update, isToday, onLog, session, profil
         <div className="meta">
           {isToday && <span className="tag today">Today's question</span>}
           {q.source === "ai" && <span className="tag src-t">AI-generated</span>}
+          {q.company && <span className="tag src-t">For {q.company}</span>}
           {q.source === "community" && <span className="tag src-t">Community</span>}
           {q.hidden && <span className="tag d-Hard">Hidden</span>}
           <span className="tag">{c.label}</span>

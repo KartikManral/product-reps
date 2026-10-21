@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState } from "react";
-import { LIBRARY, CATS } from "./data.js";
+import { LIBRARY, CATS, dailyIdFor } from "./data.js";
 
 /* ── Supabase client (null until the env vars are set) ── */
 const url = import.meta.env.VITE_SUPABASE_URL;
@@ -38,9 +38,7 @@ export const dayStr = (d = new Date()) => {
   return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
 };
 export function dailyId() {
-  let x = 0;
-  for (const ch of dayStr()) x = (x * 31 + ch.charCodeAt(0)) >>> 0;
-  return LIBRARY[x % LIBRARY.length].id;
+  return dailyIdFor(dayStr());
 }
 export function streak(attempts) {
   const days = new Set(attempts.map((a) => a.date));
