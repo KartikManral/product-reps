@@ -179,6 +179,10 @@ textarea.answer { min-height: 240px; padding: 14px 16px }
 .cm-item { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px }
 .vote { display: flex; flex-direction: column; align-items: center; border: 1px solid var(--line); background: var(--paper); border-radius: 9px; padding: 6px 0; font-family: var(--f-mono); font-weight: 600; font-size: 14px; height: max-content }
 .vote svg { width: 16px; height: 16px }
+.vote small { font-family: var(--f-body, inherit); font-weight: 500; font-size: 9.5px; line-height: 1.15; margin-top: 2px; text-align: center }
+.vote:disabled { opacity: .55; cursor: not-allowed }
+.chk { display: flex; gap: 8px; align-items: center; font-size: 14px }
+.chk input { width: 16px; height: 16px }
 .vote[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: var(--card) }
 .cm-q { font-weight: 600; font-size: 16px; line-height: 1.4; margin: 0 0 6px; overflow-wrap: anywhere }
 .cm-meta { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center }

@@ -81,7 +81,7 @@ export function fromFeed(r) {
   const c = CATS[r.category] ? r.category : "product";
   return {
     id: "cm-" + r.id, dbId: r.id, source: "community", c, d: r.difficulty, m: r.minutes || CATS[c].mins,
-    q: r.body, at: r.asked_at || "", authorId: r.author_id, authorName: r.author_name, authorAvatar: r.author_avatar,
+    q: r.body, at: r.asked_at || "", authorId: r.author_id, authorName: r.author_name, authorAvatar: r.author_avatar, anon: !!r.is_anonymous, round: r.round || "",
     votes: r.votes || 0, answers: r.answer_count || 0, comments: r.comment_count || 0, created: r.created_at, hidden: r.hidden,
   };
 }
@@ -107,6 +107,7 @@ export async function callAI(session, body) {
 
 export function dbError(e) {
   const msg = (e && (e.message || e.details)) || "";
+  if (/daily limit reached/i.test(msg)) return "Daily limit reached: you can add up to 10 questions per day.";
   if (/row-level security|permission denied/i.test(msg)) return "You don't have permission to do that.";
   if (/check constraint/i.test(msg)) return "That's too short or too long. Adjust it and try again.";
   if (/duplicate key/i.test(msg)) return "You've already done that.";

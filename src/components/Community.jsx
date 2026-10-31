@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { CATS, DIFFS } from "../data.js";
 import { supabase, ago, dbError } from "../lib.js";
-import { Avatar, SignInPrompt, UpArrow } from "./ui.jsx";
+import { Avatar, SignInPrompt, CheckIcon } from "./ui.jsx";
 
 export default function Community({ feed, feedState, myVotes, session, uid, isAdmin, onSignIn, onOpen, onPost, onVote, reload }) {
   const [sort, setSort] = useState("top");
@@ -28,11 +28,11 @@ export default function Community({ feed, feedState, myVotes, session, uid, isAd
       <div>
         <div className="cm-head">
           <h2>Asked in real interviews</h2>
-          <p className="fw-intro" style={{ margin: 0 }}>Questions other aspirants were actually asked. Upvote the useful ones, open any of them to practice, read shared answers and join the discussion.</p>
+          <p className="fw-intro" style={{ margin: 0 }}>Questions other aspirants were actually asked. Tap “I was asked this too” on the ones you were asked as well, open any of them to practice, read shared answers and join the discussion.</p>
         </div>
         <div className="cm-tools">
           <div className="seg" role="group" aria-label="Sort">
-            {[["top", "Top"], ["new", "New"], ["active", "Most discussed"]].map(([k, l]) => (
+            {[["top", "Most asked"], ["new", "New"], ["active", "Most discussed"]].map(([k, l]) => (
               <button key={k} aria-pressed={sort === k} onClick={() => setSort(k)}>{l}</button>
             ))}
           </div>
@@ -52,7 +52,7 @@ export default function Community({ feed, feedState, myVotes, session, uid, isAd
           )}
           {feedState === "ready" && list.map((q) => (
             <Item key={q.id} q={q} uid={uid} isAdmin={isAdmin} voted={myVotes.has(q.dbId)}
-              onVote={async () => { if (!uid) { flash("err", "Sign in with Google to vote."); return; } try { await onVote(q.dbId); } catch (e) { flash("err", e.message); } }}
+              onVote={async () => { if (!uid) { flash("err", "Sign in with Google to mark questions."); return; } try { await onVote(q.dbId); } catch (e) { flash("err", e.message); } }}
               onOpen={() => onOpen(q.id)}
               onDelete={() => act(() => supabase.from("questions").delete().eq("id", q.dbId), "Question deleted.")}
               onHide={() => act(() => supabase.from("questions").update({ hidden: !q.hidden }).eq("id", q.dbId), q.hidden ? "Visible again." : "Hidden from everyone else.")}
@@ -75,17 +75,22 @@ function Item({ q, uid, isAdmin, voted, onVote, onOpen, onDelete, onHide, onRepo
   const [confirm, setConfirm] = useState(false);
   return (
     <article className="cm-item">
-      <button className="vote" aria-pressed={voted} aria-label={`${voted ? "Remove upvote" : "Upvote"}, ${q.votes} votes`} onClick={onVote}>
-        <UpArrow />{q.votes}
+      <button className="vote" aria-pressed={voted} disabled={q.authorId === uid && !!uid}
+        title={q.authorId === uid && uid ? "You asked this one" : "I was asked this too"}
+        aria-label={`${voted ? "Remove: I was asked this too" : "I was asked this too"}, ${q.votes} ${q.votes === 1 ? "person" : "people"}`} onClick={onVote}>
+        <CheckIcon />{q.votes}<small>asked this too</small>
       </button>
       <div style={{ minWidth: 0 }}>
         <p className="cm-q">{q.q}</p>
         <div className="cm-meta">
           <span>{CATS[q.c].label} · {q.d}</span>
+          {q.round && <span>Round: {q.round}</span>}
           {q.at && <span>Asked at: {q.at}</span>}
-          <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-            <Avatar url={q.authorAvatar} name={q.authorName} sm />{q.authorId === uid ? "You" : q.authorName || "Someone"} · {ago(q.created)}
-          </span>
+          {q.anon && q.authorId !== uid
+            ? <span>Anonymous · {ago(q.created)}</span>
+            : <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                <Avatar url={q.authorAvatar} name={q.authorName} sm />{q.authorId === uid ? (q.anon ? "You (shown as Anonymous)" : "You") : q.authorName || "Someone"} · {ago(q.created)}
+              </span>}
           {q.hidden && <span className="tag d-Hard">Hidden</span>}
         </div>
         <div className="cm-actions">
@@ -107,16 +112,18 @@ function AddForm({ feed, onPost, onOpen }) {
   const [type, setType] = useState("product");
   const [diff, setDiff] = useState("Medium");
   const [at, setAt] = useState("");
+  const [round, setRound] = useState("");
+  const [anon, setAnon] = useState(true);
   const [st, setSt] = useState(null);
   async function submit(e) {
     e.preventDefault();
     const body = text.trim().replace(/\s+/g, " ");
     if (body.length < 15) { setSt({ kind: "err", text: "Write the full question, at least a short sentence." }); return; }
     const dup = feed.find((q) => q.q.toLowerCase() === body.toLowerCase());
-    if (dup) { setSt({ kind: "err", text: "That question is already on the board. Upvote it instead." }); return; }
+    if (dup) { setSt({ kind: "err", text: "That question is already on the board. Tap “I was asked this too” on it instead." }); return; }
     setSt({ kind: "busy", text: "Adding…" });
     try {
-      await onPost({ body: body.slice(0, 400), category: type, difficulty: diff, asked_at: at.trim().slice(0, 80) });
+      await onPost({ body: body.slice(0, 400), category: type, difficulty: diff, asked_at: at.trim().slice(0, 80), round, is_anonymous: anon });
       setText(""); setAt(""); setSt({ kind: "ok", text: "Added. Thanks for sharing." });
     } catch (err) { setSt({ kind: "err", text: err.message }); }
   }
@@ -132,8 +139,15 @@ function AddForm({ feed, onPost, onOpen }) {
           {DIFFS.map((d) => <option key={d}>{d}</option>)}
         </select>
       </div>
+      <label className="small" htmlFor="cmRound">Round (optional)</label>
+      <select className="field" id="cmRound" value={round} onChange={(e) => setRound(e.target.value)}>
+        <option value="">Not sure / skip</option>
+        {["OA", "Screening", "Product round", "Final", "HR"].map((r) => <option key={r}>{r}</option>)}
+      </select>
       <label className="small" htmlFor="cmAt">Where were you asked? (optional)</label>
       <input className="field" id="cmAt" maxLength={80} placeholder="e.g. Fintech startup, APM intern, 2026" value={at} onChange={(e) => setAt(e.target.value)} />
+      <span className="small">Optional. Skip it if you're unsure about NDAs.</span>
+      <label className="chk"><input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} /> Post anonymously</label>
       <button className="btn primary" disabled={st?.kind === "busy"}>Add question</button>
       {st && <p className={"msg" + (st.kind === "err" ? " err" : st.kind === "ok" ? " ok" : "")} style={{ margin: 0 }}>{st.text}</p>}
     </form>

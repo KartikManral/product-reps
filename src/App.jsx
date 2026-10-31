@@ -69,7 +69,7 @@ export default function App() {
   /* ── shared data ── */
   useEffect(() => {
     if (!supabase) return;
-    supabase.from("questions").select("id,slug").eq("is_library", true).then(({ data }) => {
+    supabase.from("question_feed").select("id,slug").eq("is_library", true).then(({ data }) => {
       const m = {}; (data || []).forEach((r) => { if (r.slug) m[r.slug] = r.id; }); setLibMap(m);
     });
   }, []);
@@ -186,9 +186,9 @@ export default function App() {
   }, [prep, session, autoTried, prepQuestions.length, generateForCompany]);
 
   /* ── community actions ── */
-  const postQuestion = useCallback(async ({ body, category, difficulty, asked_at, minutes }) => {
+  const postQuestion = useCallback(async ({ body, category, difficulty, asked_at, minutes, is_anonymous, round }) => {
     const { data, error } = await supabase.from("questions")
-      .insert({ author_id: uid, body, category, difficulty, asked_at: asked_at || null, minutes: minutes || CATS[category].mins })
+      .insert({ author_id: uid, body, category, difficulty, asked_at: asked_at || null, is_anonymous: is_anonymous !== false, round: round || null, minutes: minutes || CATS[category].mins })
       .select("id").single();
     if (error) throw new Error(dbError(error));
     await loadFeed();

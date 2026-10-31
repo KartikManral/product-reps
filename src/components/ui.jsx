@@ -32,6 +32,10 @@ export function SignInPrompt({ text, onSignIn }) {
   );
 }
 
+export const CheckIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+);
+
 export const UpArrow = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
 );
